@@ -16,6 +16,7 @@ from skimage.util import img_as_ubyte
 from sklearn.cluster import MiniBatchKMeans
 import cv2
 from tqdm import tqdm
+from motmot.FlyMovieFormat import FlyMovieFormat as FMF
 
 def UniformFrames(clip,numframes2pick,start,stop,Index=None):
     ''' Temporally uniformly sampling frames in interval (start,stop). 
@@ -51,6 +52,42 @@ def UniformFramescv2(cap,numframes2pick,start,stop,Index=None):
     '''
     nframes = int(cap.get(7))
     print("Uniformly extracting of frames from",  round(start*nframes*1./cap.get(5),2)," seconds to", round(stop*nframes*1./cap.get(5),2), " seconds.")
+
+    if Index is None:
+        if start==0:
+            frames2pick = np.random.choice(math.ceil(nframes * stop), size=numframes2pick, replace = False)
+        else:
+            frames2pick = np.random.choice(range(math.floor(nframes * start),math.ceil(nframes * stop)), size=numframes2pick, replace = False)
+        return frames2pick
+    else:
+        startindex=int(np.floor(nframes*start))
+        stopindex=int(np.ceil(nframes*stop))
+        Index=np.array(Index,dtype=np.int)
+        Index=Index[(Index>startindex)*(Index<stopindex)] #crop to range!
+        if len(Index)>=numframes2pick:
+            return list(np.random.permutation(Index)[:numframes2pick])
+        else:
+            return list(Index)
+        
+#uses motmot.FlyMovieFormat
+def UniformFramesfmf(cap,numframes2pick,start,stop,Index=None):
+    ''' Temporally uniformly sampling frames in interval (start,stop). 
+    Visual information of video is irrelevant for this method. This code is fast and sufficient (to extract distinct frames),
+    when behavioral videos naturally covers many states.
+    
+    The variable Index allows to pass on a subindex for the frames. 
+    '''
+    nframes = cap.n_frames
+    while True:
+        try:
+            cap.get_frame(nframes)
+        except FMF.NoMoreFramesException:
+            nframes -= 1
+            continue
+        break
+    fps = 1./(cap.get_frame(min(100, nframes))[1] - cap.get_frame(min(100, nframes)-1)[1])
+    duration = cap.get_frame(nframes)[1]
+    print("Uniformly extracting of frames from",  round(start*nframes*1./fps,2)," seconds to", round(stop*nframes*1./fps,2), " seconds.")
 
     if Index is None:
         if start==0:

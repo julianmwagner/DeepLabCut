@@ -9,7 +9,7 @@ Licensed under GNU Lesser General Public License v3.0
 """
 
 
-def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback=True,cluster_step=1,cluster_resizewidth=30,cluster_color=False,opencv=True,slider_width=25):
+def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback=True,cluster_step=1,cluster_resizewidth=30,cluster_color=False,opencv=True,flymovie=False,slider_width=25):
     """
     Extracts frames from the videos in the config.yaml file. Only the videos in the config.yaml will be used to select the frames.\n
     Use the function ``add_new_video`` at any stage of the project to add new videos to the config file and extract their frames.
@@ -87,6 +87,7 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
     import numpy as np
     from pathlib import Path
     from skimage import io
+    import skimage
     from skimage.util import img_as_ubyte
     import matplotlib.pyplot as plt
     import matplotlib.patches as patches
@@ -119,6 +120,9 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
         videos = cfg['video_sets'].keys()
         if opencv:
             import cv2
+        elif flymovie:
+            from motmot.FlyMovieFormat import FlyMovieFormat as FMF
+            import cv2
         else:
             from moviepy.editor import VideoFileClip
         for vindex,video in enumerate(videos):
@@ -138,13 +142,28 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                     fps = cap.get(5) #https://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html#videocapture-get
                     nframes = int(cap.get(7))
                     duration=nframes*1./fps
+                elif flymovie:
+                    cap = FMF.FlyMovie(video)
+                    nframes = cap.n_frames
+                    while True:
+                        try:
+                            print(nframes)
+                            cap.get_frame(nframes)
+                        except FMF.NoMoreFramesException:
+                            nframes -= 1
+                            continue
+                        break
+                    fps = 1./(cap.get_frame(min(100, nframes))[1] - cap.get_frame(min(100, nframes)-1)[1])
+                    duration = cap.get_frame(nframes)[1]
                 else:
                     #Moviepy:
                     clip = VideoFileClip(video)
                     fps=clip.fps
                     duration=clip.duration
                     nframes=int(np.ceil(clip.duration*1./fps))
+
                 indexlength = int(np.ceil(np.log10(nframes)))
+                
                 if crop==True:
                     from deeplabcut.utils import select_crop_parameters
                     if opencv:
@@ -152,6 +171,11 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                         ret, frame = cap.read()
                         if ret:
                             image=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    elif flymovie:
+                        frame = cap.get_frame(int(nframes*start))[0]
+                        if frame.ndim != 3:
+                            frame = skimage.color.gray2rgb(frame)
+                        image = frame
                     else:
                         image = clip.get_frame(start*clip.duration) #frame is accessed by index *1./clip.fps (fps cancels)
                     
@@ -174,6 +198,11 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                                     ret, frame = cap.read()
                                     if ret:
                                         image=img_as_ubyte(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+                                elif flymovie:
+                                    frame = cap.get_frame(int(nframes*start))[0]
+                                    if frame.ndim != 3:
+                                        frame = skimage.color.gray2rgb(frame)
+                                    image = img_as_ubyte(frame)
                                 else:
                                     image = img_as_ubyte(clip.get_frame(index * 1. / clip.fps))
                                     clip=clip.crop(y1 = int(coords[2]),y2 = int(coords[3]),x1 = int(coords[0]), x2 = int(coords[1])) #now crop clip
@@ -182,24 +211,29 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                                 io.imsave(saveimg, image)
 
                         else:
-                              askuser=input ("The directory already contains some frames. Do you want to add to it?(yes/no): ")
-                              if askuser=='y' or askuser=='yes' or askuser=='Y' or askuser=='Yes':
-                                  #clip=clip.crop(y1 = int(coords[2]),y2 = int(coords[3]),x1 = int(coords[0]), x2 = int(coords[1]))
-                                  index=int(start*duration+np.random.rand()*duration*(stop-start))
-                                  if opencv:
+                            askuser=input ("The directory already contains some frames. Do you want to add to it?(yes/no): ")
+                            if askuser=='y' or askuser=='yes' or askuser=='Y' or askuser=='Yes':
+                                #clip=clip.crop(y1 = int(coords[2]),y2 = int(coords[3]),x1 = int(coords[0]), x2 = int(coords[1]))
+                                index=int(start*duration+np.random.rand()*duration*(stop-start))
+                                if opencv:
                                     cap.set(1,index)
                                     ret, frame = cap.read()
                                     if ret:
                                         image=img_as_ubyte(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-                                  else:
-                                      image = img_as_ubyte(clip.get_frame(index * 1. / clip.fps))
-                                      clip=clip.crop(y1 = int(coords[2]),y2 = int(coords[3]),x1 = int(coords[0]), x2 = int(coords[1]))
-                            
-                                  saveimg = str(output_path) +'/img'+ str(index).zfill(indexlength) + ".png"
-                                  io.imsave(saveimg, image)
-                                  pass
-                              else:
-                                  sys.exit("Delete the frames and try again later!")
+                                elif flymovie:
+                                    frame = cap.get_frame(int(nframes*start))[0]
+                                    if frame.ndim != 3:
+                                        frame = skimage.color.gray2rgb(frame)
+                                    image = img_as_ubyte(frame)
+                                else:
+                                    image = img_as_ubyte(clip.get_frame(index * 1. / clip.fps))
+                                    clip=clip.crop(y1 = int(coords[2]),y2 = int(coords[3]),x1 = int(coords[0]), x2 = int(coords[1]))
+
+                                saveimg = str(output_path) +'/img'+ str(index).zfill(indexlength) + ".png"
+                                io.imsave(saveimg, image)
+                                pass
+                            else:
+                                sys.exit("Delete the frames and try again later!")
                     
                             
                 else:
@@ -210,11 +244,16 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                 if algo =='uniform': #extract n-1 frames (0 was already stored)
                     if opencv:
                         frames2pick=frameselectiontools.UniformFramescv2(cap,numframes2pick-1,start,stop)
+                    elif flymovie:
+                        frames2pick=frameselectiontools.UniformFramesfmf(cap,numframes2pick-1,start,stop)
                     else:
                         frames2pick=frameselectiontools.UniformFrames(clip,numframes2pick-1,start,stop)
                 elif algo =='kmeans':
                     if opencv:
                         frames2pick=frameselectiontools.KmeansbasedFrameselectioncv2(cap,numframes2pick-1,start,stop,crop,coords,step=cluster_step,resizewidth=cluster_resizewidth,color=cluster_color)
+                    elif flymovie:
+                        print("FMF not supported by kmeans as of now!")
+                        frames2pick=[]
                     else:
                         frames2pick=frameselectiontools.KmeansbasedFrameselection(clip,numframes2pick-1,start,stop,step=cluster_step,resizewidth=cluster_resizewidth,color=cluster_color)
                 else:
@@ -236,6 +275,19 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                             else:
                                 print("Frame", index, " not found!")
                     cap.release()
+                elif flymovie:
+                    for index in frames2pick:
+                        print(index)
+                        frame = cap.get_frame(int(index))[0]
+                        if frame.ndim != 3:
+                            frame = skimage.color.gray2rgb(frame)
+                        image=img_as_ubyte(frame)
+                        img_name = str(output_path) +'/img'+ str(index).zfill(indexlength) + ".png"
+                        if crop:
+                            io.imsave(img_name,image[int(coords[2]):int(coords[3]),int(coords[0]):int(coords[1]),:]) #y1 = int(coords[2]),y2 = int(coords[3]),x1 = int(coords[0]), x2 = int(coords[1]
+                        else:
+                            io.imsave(img_name,image)
+                    cap.close()
                 else:
                     for index in frames2pick:
                         try:

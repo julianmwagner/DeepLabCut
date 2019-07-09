@@ -14,6 +14,7 @@ from pathlib import Path
 import cv2
 from deeplabcut import DEBUG
 import shutil
+from motmot.FlyMovieFormat import FlyMovieFormat as FMF
 
 def create_new_project(project, experimenter, videos, working_directory=None, copy_videos=False,videotype='.avi'):
     """Creates a new project directory, sub-directories and a basic configuration file. The configuration file is loaded with the default values. Change its parameters to your projects need.
@@ -118,7 +119,13 @@ def create_new_project(project, experimenter, videos, working_directory=None, co
                 os.symlink(src, dst)
             except OSError:
                 import subprocess
-                subprocess.check_call('mklink %s %s' %(dst,src),shell = True)
+                try:
+                    subprocess.check_call('mklink %s %s' %(dst,src),shell = True)
+                except subprocess.CalledProcessError:
+                    print("run the following command with elevated permissions:")
+                    print('mklink %s %s' %(dst,src))
+                    print("Have you run the command?")
+                    askuser = input("yes/no")
             print('Created the symlink of {} to {}'.format(src, dst))
             videos = destinations
 
@@ -134,15 +141,19 @@ def create_new_project(project, experimenter, videos, working_directory=None, co
            rel_video_path = str(Path.resolve(Path(video)))
         except:
            rel_video_path = os.readlink(str(video))
-
-        vcap = cv2.VideoCapture(rel_video_path)
-        if vcap.isOpened():
-           width = int(vcap.get(cv2.CAP_PROP_FRAME_WIDTH))
-           height = int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-           video_sets[rel_video_path] = {'crop': ', '.join(map(str, [0, width, 0, height]))}
-        else:
-           print("Cannot open the video file!")
-           video_sets=None
+        try:
+            fmf = FMF.FlyMovie(str(video))
+            width, height = fmf.framesize
+            video_sets[rel_video_path] = {'crop': ', '.join(map(str, [0, width, 0, height]))}
+        except (NotImplementedError, FileNotFoundError):
+            vcap = cv2.VideoCapture(rel_video_path)
+            if vcap.isOpened():
+               width = int(vcap.get(cv2.CAP_PROP_FRAME_WIDTH))
+               height = int(vcap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+               video_sets[rel_video_path] = {'crop': ', '.join(map(str, [0, width, 0, height]))}
+            else:
+               print("Cannot open the video file!")
+               video_sets=None
 
     #        Set values to config file:
     cfg_file,ruamelFile = auxiliaryfunctions.create_config_template()
