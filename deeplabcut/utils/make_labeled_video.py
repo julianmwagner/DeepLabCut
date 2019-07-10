@@ -40,6 +40,8 @@ from skimage.util import img_as_ubyte
 from skimage.draw import circle_perimeter, circle, line,line_aa
 
 from deeplabcut.utils.video_processor import VideoProcessorCV as vp # used to CreateVideo
+from deeplabcut.utils.video_processor import VideoProcessorCVFMF as vpfmf # used to CreateVideo
+
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
@@ -397,10 +399,16 @@ def create_labeled_video(config,videos,videotype='avi',shuffle=1,trainingsetinde
                     CreateVideoSlow(videooutname,clip,Dataframe,tmpfolder,cfg["dotsize"],cfg["colormap"],cfg["alphavalue"],cfg["pcutoff"],trailpoints,cropping,x1,x2,y1,y2,delete,DLCscorer,bodyparts,outputframerate,Frames2plot,bodyparts2connect,skeleton_color,draw_skeleton,displaycropped)
                 else:
                     if displaycropped: #then the cropped video + the labels is depicted
-                        clip = vp(fname = video,sname = videooutname,codec=codec,sw=x2-x1,sh=y2-y1)
+                        if '.fmf' in video:
+                            clip = vpfmf(fname = video,sname = videooutname,codec=codec,sw=x2-x1,sh=y2-y1)
+                        else:
+                            clip = vp(fname = video,sname = videooutname,codec=codec,sw=x2-x1,sh=y2-y1)
                         CreateVideo(clip,Dataframe,cfg["pcutoff"],cfg["dotsize"],cfg["colormap"],DLCscorer,bodyparts,trailpoints,cropping,x1,x2,y1,y2,bodyparts2connect,skeleton_color,draw_skeleton,displaycropped)
                     else: #then the full video + the (perhaps in cropped mode analyzed labels) are depicted
-                        clip = vp(fname = video,sname = videooutname,codec=codec)
+                        if '.fmf' in video:
+                            clip = vpfmf(fname = video,sname = videooutname,codec=codec)
+                        else:
+                            clip = vp(fname = video,sname = videooutname,codec=codec)
                         CreateVideo(clip,Dataframe,cfg["pcutoff"],cfg["dotsize"],cfg["colormap"],DLCscorer,bodyparts,trailpoints,cropping,x1,x2,y1,y2,bodyparts2connect,skeleton_color,draw_skeleton,displaycropped)
 
 if __name__ == '__main__':

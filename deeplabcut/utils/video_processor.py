@@ -12,6 +12,9 @@ i.e. 'XVID'
 
 import numpy as np
 import cv2
+import skimage
+from motmot.FlyMovieFormat import FlyMovieFormat as FMF
+import skimage.io
 
 class VideoProcessor(object):
     '''
@@ -44,6 +47,7 @@ class VideoProcessor(object):
                     self.sw=sw
                     self.sh=sh
                 self.svid = self.create_video()
+                print(self.svid)
 
         except Exception as ex:
             print('Error: %s', ex)
@@ -146,3 +150,53 @@ class VideoProcessorCV(VideoProcessor):
         self.svid.release()
         self.vid.release()
 
+class VideoProcessorCVFMF(VideoProcessor):
+    '''
+    OpenCV implementation of VideoProcessor
+    requires opencv-python==3.4.0.12
+    '''
+    def __init__(self, *args, **kwargs):
+        super(VideoProcessorCVFMF, self).__init__(*args, **kwargs)
+    
+    def get_video(self):
+         return FMF.FlyMovie(self.fname)
+        
+    def get_info(self):
+        self.w = int(self.vid.framesize[0])
+        self.h = int(self.vid.framesize[1])
+        all_frames = int(self.vid.n_frames)
+        
+        nframes = self.vid.n_frames
+        while True:
+            try:
+                self.vid.get_frame(nframes)
+            except FMF.NoMoreFramesException:
+                nframes -= 1
+                continue
+            break
+        self.FPS = 60#1./(self.vid.get_frame(min(100, nframes))[1] - self.vid.get_frame(min(100, nframes)-1)[1])
+        duration = self.vid.get_frame(nframes)[1]
+        
+        self.nc = 3
+        if self.nframes == -1 or self.nframes>all_frames:
+            self.nframes = all_frames
+        print(self.nframes)
+            
+    def create_video(self):
+        fourcc = cv2.VideoWriter_fourcc(*self.codec)
+        return cv2.VideoWriter(self.sname,fourcc, self.FPS, (self.sw,self.sh),True)
+    
+    def _read_frame(self): #return RGB (rather than BGR)!
+        #return cv2.cvtColor(np.flip(self.vid.read()[1],2), cv2.COLOR_BGR2RGB)
+        frame = self.vid.get_frame(self.i)[0]
+        if frame.ndim != 3:
+            frame = skimage.color.gray2rgb(frame)
+        return frame
+    
+    def save_frame(self,frame):
+        #skimage.io.imsave(arr=frame, fname=r'C:\Users\jwagner2\Downloads\test_frame'+str(self.i)+'.png')
+        self.svid.write(frame)
+    
+    def close(self):
+        self.svid.release()
+        self.vid.close()

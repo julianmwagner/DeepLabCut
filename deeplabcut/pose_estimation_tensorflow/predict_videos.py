@@ -21,12 +21,16 @@ import pandas as pd
 import numpy as np
 import os
 import argparse
+import matplotlib.pyplot as plt
 from pathlib import Path
 from tqdm import tqdm
 import tensorflow as tf
 from deeplabcut.utils import auxiliaryfunctions
 import cv2
 from skimage.util import img_as_ubyte
+import skimage
+from motmot.FlyMovieFormat import FlyMovieFormat as FMF
+
 
 ####################################################
 # Loading data, and defining model folder
@@ -270,6 +274,48 @@ def GetPoseS(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes):
     pbar.close()
     return PredicteData,nframes
 
+def GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes):
+    ''' Non batch wise pose estimation for video cap.'''
+    print("annotating fmf file")
+    if cfg['cropping']:
+        print("Cropping based on the x1 = %s x2 = %s y1 = %s y2 = %s. You can adjust the cropping coordinates in the config.yaml file." %(cfg['x1'], cfg['x2'],cfg['y1'], cfg['y2']))
+        nx=cfg['x2']-cfg['x1']
+        ny=cfg['y2']-cfg['y1']
+        if nx>0 and ny>0:
+            pass
+        else:
+            raise Exception('Please check the order of cropping parameter!')
+        if cfg['x1']>=0 and cfg['x2']<int(cap.framesize[1]+1) and cfg['y1']>=0 and cfg['y2']<int(cap.framesize[0]+1):
+            pass #good cropping box
+        else:
+            raise Exception('Please check the boundary of cropping!')
+    
+    PredicteData = np.zeros((nframes, 3 * len(dlc_cfg['all_joints_names'])))
+    pbar=tqdm(total=nframes)
+    counter=0
+    step=max(10,int(nframes/100))
+    step = 10
+    while(counter<nframes):
+            if counter%step==0:
+                pbar.update(step)
+            
+            frame = cap.get_frame(counter)[0]
+            if frame.ndim != 3:
+                frame = skimage.color.gray2rgb(frame)
+            frame=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            if cfg['cropping']:
+                frame= img_as_ubyte(frame[cfg['y1']:cfg['y2'],cfg['x1']:cfg['x2']])
+            else:
+                frame = img_as_ubyte(frame)
+            #print(frame)
+            pose = predict.getpose(frame, dlc_cfg, sess, inputs, outputs)
+            PredicteData[counter, :] = pose.flatten()  # NOTE: thereby cfg['all_joints_names'] should be same order as bodyparts!
+
+            counter+=1
+            
+    pbar.close()
+    return PredicteData,nframes
+
 
 def AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,pdindex,save_as_csv, destfolder=None):
     ''' Helper function for analyzing a video '''
@@ -284,12 +330,32 @@ def AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,
         print("Video already analyzed!", dataname)
     except FileNotFoundError:
         print("Loading ", video)
-        cap=cv2.VideoCapture(video)
-        
-        fps = cap.get(5) #https://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html#videocapture-get
-        nframes = int(cap.get(7))
-        duration=nframes*1./fps
-        size=(int(cap.get(4)),int(cap.get(3)))
+        vid_type='cv2'
+        if '.fmf' in video: 
+            cap=FMF.FlyMovie(video)
+            vid_type='fmf'
+        else:
+            cap=cv2.VideoCapture(video)
+
+        nframes, fps, duration = (0,0,0)
+        size=(0,0)
+        if vid_type == 'fmf':
+            nframes = cap.n_frames
+            while True:
+                try:
+                    cap.get_frame(nframes)
+                except FMF.NoMoreFramesException:
+                    nframes -= 1
+                    continue
+                break
+            fps = 1./(cap.get_frame(min(100, nframes))[1] - cap.get_frame(min(100, nframes)-1)[1])
+            duration = cap.get_frame(nframes)[1]
+            size=cap.framesize
+        else:
+            fps = cap.get(5) #https://docs.opencv.org/2.4/modules/highgui/doc/reading_and_writing_images_and_video.html#videocapture-get
+            nframes = int(cap.get(7))
+            duration=nframes*1./fps
+            size=(int(cap.get(4)),int(cap.get(3)))
         
         ny,nx=size
         print("Duration of video [s]: ", round(duration,2), ", recorded with ", round(fps,2),"fps!")
@@ -297,7 +363,9 @@ def AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,
         start = time.time()
 
         print("Starting to extract posture")
-        if int(dlc_cfg["batch_size"])>1:
+        if vid_type == 'fmf':
+            PredicteData,nframes=GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes)
+        elif int(dlc_cfg["batch_size"])>1:
             PredicteData,nframes=GetPoseF(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes,int(dlc_cfg["batch_size"]))
         else:
             PredicteData,nframes=GetPoseS(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes)

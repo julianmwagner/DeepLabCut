@@ -147,7 +147,6 @@ def extract_frames(config,mode='automatic',algo='kmeans',crop=False,userfeedback
                     nframes = cap.n_frames
                     while True:
                         try:
-                            print(nframes)
                             cap.get_frame(nframes)
                         except FMF.NoMoreFramesException:
                             nframes -= 1
