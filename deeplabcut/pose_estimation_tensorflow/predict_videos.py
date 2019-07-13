@@ -36,7 +36,7 @@ from motmot.FlyMovieFormat import FlyMovieFormat as FMF
 # Loading data, and defining model folder
 ####################################################
 
-def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gputouse=None,save_as_csv=False, destfolder=None,cropping=None):
+def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gputouse=None,save_as_csv=False, destfolder=None,cropping=None,start=0,stop=1):
     """
     Makes prediction based on a trained network. The index of the trained network is specified by parameters in the config file (in particular the variable 'snapshotindex')
     
@@ -169,7 +169,7 @@ def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gp
     if len(Videos)>0:
         #looping over videos
         for video in Videos:
-            AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,pdindex,save_as_csv, destfolder)
+            AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,pdindex,save_as_csv, destfolder,start=start,stop=stop)
     
         os.chdir(str(start_path))
         print("The videos are analyzed. Now your research can truly start! \n You can create labeled videos with 'create_labeled_video'.")
@@ -274,7 +274,7 @@ def GetPoseS(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes):
     pbar.close()
     return PredicteData,nframes
 
-def GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes):
+def GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes,start=0,stop=1):
     ''' Non batch wise pose estimation for video cap.'''
     print("annotating fmf file")
     if cfg['cropping']:
@@ -289,7 +289,7 @@ def GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes):
             pass #good cropping box
         else:
             raise Exception('Please check the boundary of cropping!')
-    
+    nframes=int(stop*nframes)
     PredicteData = np.zeros((nframes, 3 * len(dlc_cfg['all_joints_names'])))
     pbar=tqdm(total=nframes)
     counter=0
@@ -317,7 +317,7 @@ def GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes):
     return PredicteData,nframes
 
 
-def AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,pdindex,save_as_csv, destfolder=None):
+def AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,pdindex,save_as_csv, destfolder=None,start=0,stop=1):
     ''' Helper function for analyzing a video '''
     print("Starting to analyze % ", video)
     vname = Path(video).stem
@@ -364,7 +364,7 @@ def AnalyzeVideo(video,DLCscorer,trainFraction,cfg,dlc_cfg,sess,inputs, outputs,
 
         print("Starting to extract posture")
         if vid_type == 'fmf':
-            PredicteData,nframes=GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes)
+            PredicteData,nframes=GetPoseSfmf(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes,start=start,stop=stop)
         elif int(dlc_cfg["batch_size"])>1:
             PredicteData,nframes=GetPoseF(cfg,dlc_cfg, sess, inputs, outputs,cap,nframes,int(dlc_cfg["batch_size"]))
         else:
