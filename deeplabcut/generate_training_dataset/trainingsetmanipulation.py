@@ -16,12 +16,12 @@ import os.path
 import matplotlib as mpl
 
 import platform
-if os.environ.get('DLClight', default=False) == 'True':
-    mpl.use('AGG') #anti-grain geometry engine #https://matplotlib.org/faq/usage_faq.html
-elif platform.system() == 'Darwin':
-    mpl.use('WxAgg') #TkAgg
-else:
-    mpl.use('TkAgg')
+#if os.environ.get('DLClight', default=False) == 'True':
+#    mpl.use('AGG') #anti-grain geometry engine #https://matplotlib.org/faq/usage_faq.html
+#elif platform.system() == 'Darwin':
+#    mpl.use('WxAgg') #TkAgg
+#else:
+#    mpl.use('TkAgg')
 import matplotlib.pyplot as plt
 from skimage import io
 
