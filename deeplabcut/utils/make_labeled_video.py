@@ -251,7 +251,7 @@ def CreateVideoSlow(videooutname,clip,Dataframe,tmpfolder,dotsize,colormap,alpha
             os.remove(file_name)
     os.chdir(start)
 
-def create_labeled_video(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,filtered=False,save_frames=False,Frames2plot=None,delete=False,displayedbodyparts='all',codec='mp4v',outputframerate=None, destfolder=None,draw_skeleton=False,trailpoints = 0,displaycropped=False):
+def create_labeled_video(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,filtered=False,save_frames=False,Frames2plot=None,delete=False,displayedbodyparts='all',codec='mp4v',outputframerate=None, destfolder=None,draw_skeleton=False,trailpoints = 0,displaycropped=False, dataname='None'):
     """
     Labels the bodyparts in a video. Make sure the video is already analyzed by the function 'analyze_video'
 
@@ -366,7 +366,8 @@ def create_labeled_video(config,videos,videotype='avi',shuffle=1,trainingsetinde
             print("Labeled video already created.")
         else:
             print("Loading ", video, "and data.")
-            dataname = os.path.join(str(videofolder),vname+DLCscorer + '.h5')
+            if dataname == 'None':
+                dataname = os.path.join(str(videofolder),vname+DLCscorer + '.h5')
             try:
                 Dataframe = pd.read_hdf(dataname)
                 metadata=auxiliaryfunctions.LoadVideoMetadata(dataname)
