@@ -36,7 +36,7 @@ from motmot.FlyMovieFormat import FlyMovieFormat as FMF
 # Loading data, and defining model folder
 ####################################################
 
-def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gputouse=None,save_as_csv=False, destfolder=None,cropping=None,start=0,stop=1):
+def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gputouse=None,save_as_csv=False, destfolder=None,cropping=None,start=0,stop=1, network_path=None):
     """
     Makes prediction based on a trained network. The index of the trained network is specified by parameters in the config file (in particular the variable 'snapshotindex')
     
@@ -151,7 +151,10 @@ def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gp
     ##################################################
 
     # Check if data already was generated:
-    dlc_cfg['init_weights'] = os.path.join(modelfolder , 'train', Snapshots[snapshotindex])
+    if not (network_path == None):
+         dlc_cfg['init_weights'] = network_path
+    else:
+        dlc_cfg['init_weights'] = os.path.join(modelfolder , 'train', Snapshots[snapshotindex])
     trainingsiterations = (dlc_cfg['init_weights'].split(os.sep)[-1]).split('-')[-1]
     
     #update batchsize (based on parameters in config.yaml)
@@ -160,6 +163,8 @@ def analyze_videos(config,videos,videotype='avi',shuffle=1,trainingsetindex=0,gp
     DLCscorer = auxiliaryfunctions.GetScorerName(cfg,shuffle,trainFraction,trainingsiterations=trainingsiterations)
     
     sess, inputs, outputs = predict.setup_pose_prediction(dlc_cfg)
+    print(sess)
+    print(dlc_cfg['init_weights'])
     pdindex = pd.MultiIndex.from_product([[DLCscorer], dlc_cfg['all_joints_names'], ['x', 'y', 'likelihood']],names=['scorer', 'bodyparts', 'coords'])
     ##################################################
     # Datafolder
