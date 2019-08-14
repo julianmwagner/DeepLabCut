@@ -90,7 +90,7 @@ def CreateVideo(clip,Dataframe,pcutoff,dotsize,colormap,DLCscorer,bodyparts2plot
                 df_y[bpindex,:]=Dataframe[DLCscorer][bp]['y'].values
         
     
-        for index in tqdm(range(nframes)):
+        for index in tqdm(range(100)):
             image = clip.load_frame()
             if displaycropped:
                     image=image[y1:y2,x1:x2]

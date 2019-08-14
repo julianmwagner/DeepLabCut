@@ -116,7 +116,7 @@ def read_config(configname):
         try:
             with open(path, 'r') as f:
                 cfg = ruamelFile.load(f)
-            print(1)
+            #print(1)
         except Exception as err:
             if err.args[2] == "could not determine a constructor for the tag '!!python/tuple'":
                 with open(path, 'r') as ymlfile:
@@ -124,7 +124,7 @@ def read_config(configname):
                   write_config(configname,cfg)
     else:
         raise FileNotFoundError ("Config file is not found. Please make sure that the file exists and/or there are no unnecessary spaces in the path of the config file!")
-    print(1)
+    #print(1)
     return(cfg)
 
 def write_config(configname,cfg):
